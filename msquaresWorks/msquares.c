@@ -14,6 +14,8 @@ void buzzer_set_period(short cycles);
 
 #endif // included
 
+
+
 typedef struct {
   short col, row;
 } Pos;
@@ -44,7 +46,6 @@ int barWidth = 5;
 int barHeight = 30;
 int barStep = 10;
 #define PONG_SPEED 5
-#define OUT_OF_BOUNDS 25
 
 /* my functions start here */
 void drawVerticalLine(int pNum , u_char col , u_int colorBGR);
@@ -87,8 +88,8 @@ int switches = 0;
 void
 switch_interrupt_handler()
 {
-  int topOfScreen = OUT_OF_BOUNDS;
-  int botOfScreen = screenHeight - OUT_OF_BOUNDS - barHeight;
+  int topOfScreen = 20;
+  int botOfScreen = screenHeight - barHeight;
   char p2val = switch_update_interrupt_sense();
   switches = ~p2val & SWITCHES;
 
@@ -182,7 +183,7 @@ update_shape()
 
   drawPixel(col , row, COLOR_BLACK);
   col += dx;
-  row += dy;
+  row += 0;
 
   /* using 5x7 font */
   //drawString5x7(screenWidth/2-10 , 10, "Pong" , COLOR_GREEN, COLOR_BLACK);
@@ -198,13 +199,7 @@ update_shape()
   drawString11x16(screenWidth/2-22 , 10, "Pong" , COLOR_GREEN, COLOR_BLACK);
   drawString11x16(10 , 10, itoa(goalsP1, scoreP1, 16) , COLOR_GREEN , COLOR_BLACK);
   drawString11x16(screenWidth - 24 , 10, itoa(goalsP2, scoreP2, 16) , COLOR_GREEN , COLOR_BLACK);
-
-  /* draw the field of play */
-  for ( int i=0; i<screenWidth; ++i ) {
-    drawPixel(i,OUT_OF_BOUNDS, COLOR_GREEN);
-    drawPixel(i,screenHeight-OUT_OF_BOUNDS, COLOR_GREEN);
-  }
-
+  
   drawPixel( col , row , COLOR_GREEN);
 
   drawBar(positions[1].col,positions[1].row , barWidth , barHeight , COLOR_RED);
@@ -214,17 +209,18 @@ update_shape()
   positions[0].row = row;
 
   if (checkBlock(1 , barWidth , barHeight)){
+    //srand(time(0));
     int n = (rand() % PONG_SPEED + 1);
-    if (rand()%2 == 0 ) n = -n;
     dx = -dx;
     dy = n;
     return;
   }
   if (checkBlock(2 , barWidth , barHeight)){
+    //srand(time(0));
     int n = (rand() % PONG_SPEED + 1);
-    if (rand()%2 == 0 )n = -n;
     dx = -dx;
-    dy = n;
+    dy = -n;
+
     return;
   }
 
@@ -246,14 +242,13 @@ update_shape()
     goalPattern(2000);
   }
 
-  //--- bounce of the top of the field or the bottom of the field...
-  if ( positions[0].row <= OUT_OF_BOUNDS ) {
+  if ( positions[0].row <= 10 ) {
     dy = -dy;
-    positions[0].row = OUT_OF_BOUNDS;
+    positions[0].row = 10;
   }
-  if ( positions[0].row >= screenHeight - OUT_OF_BOUNDS){
+  if ( positions[0].row >= screenHeight - 10){
     dy = -dy;
-    positions[0].row = screenHeight - OUT_OF_BOUNDS;
+    positions[0].row = screenHeight - 10;
   }
 
 }
@@ -284,8 +279,8 @@ int checkBlock(int pNum, int width , int height){
   return 0;
 }
 
-/* Function to buzz a goal Pattern when player scores */
-void goalPattern(int x){  
+void goalPattern(int x){
+  
   for (int i=0; i<10; ++ i ) {
     if ( x/(i+1) < 10 ) break;
     buzzer_set_period(x/(i+1));
@@ -293,16 +288,21 @@ void goalPattern(int x){
   }
 }
 
-/* Function to add delay in buzzer */
 void sleep(double n){
   while(n>0){
     n--;
   }
 }
 
-/* initialize the buzzer */
 void buzzer_init()
 {
+    /* 
+       Direct timer A output "TA0.1" to P2.6.  
+        According to table 21 from data sheet:
+          P2SEL2.6, P2SEL2.7, anmd P2SEL.7 must be zero
+          P2SEL.6 must be 1
+        Also: P2.6 direction must be output
+    */
     timerAUpmode();		/* used to drive speaker */
     P2SEL2 &= ~(BIT6 | BIT7);
     P2SEL &= ~BIT7; 
@@ -310,7 +310,7 @@ void buzzer_init()
     P2DIR = BIT6;		/* enable output to speaker (P2.6) */
 }
 
-void buzzer_set_period(short cycles) /* buzzer clock = 2MHz. (period of 1k results in 2kHz tone) */
+void buzzer_set_period(short cycles) /* buzzer clock = 2MHz.  (period of 1k results in 2kHz tone) */
 {
   CCR0 = cycles; 
   CCR1 = cycles >> 1;		/* one half cycle */
